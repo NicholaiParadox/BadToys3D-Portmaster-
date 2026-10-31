@@ -1,0 +1,58 @@
+name: Build PortMaster (aarch64, Debian 13 Trixie)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04-arm
+    container: debian:trixie
+
+    steps:
+      - name: Install DP
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            build-essential cmake git patch file binutils ca-certificates pkg-config \
+            libsdl2-dev libasound2-dev libgles-dev libegl-dev libdrm-dev libgbm-dev
+
+      - uses: actions/checkout@v4
+
+      - name: Apply Patch
+        run: |
+          if grep -q BT3D_PLATFORM_PORTMASTER CMakeLists.txt; then
+            echo "Parche ya aplicado."
+          elif [ -f bt3d-portmaster.patch ]; then
+            patch -p1 < bt3d-portmaster.patch
+          else
+            echo "Falta bt3d-portmaster.patch y el source no esta parcheado."; exit 1
+          fi
+
+      - name: Verificar cmake/desktop.cmake
+        run: cat cmake/desktop.cmake
+
+      - name: Config
+        run: |
+          cmake -S . -B build/portmaster \
+            -DBT3D_PLATFORM_PORTMASTER=ON \
+            -DBT3D_FETCH_RAYLIB=ON \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_STANDARD_LIBRARIES="-lm -lpthread -ldl"
+
+      - name: Compile
+        run: cmake --build build/portmaster --parallel
+
+      - name: Binary Info
+        run: |
+          file build/portmaster/bt3d_raylib
+          echo "--- librerias dinamicas ---"
+          ldd build/portmaster/bt3d_raylib || true
+          echo "--- glibc minima requerida ---"
+          objdump -T build/portmaster/bt3d_raylib | grep -o 'GLIBC_[0-9.]*' | sort -uV | tail -1
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bt3d_raylib-aarch64
+          path: build/portmaster/bt3d_raylib
