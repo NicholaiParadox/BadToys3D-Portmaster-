@@ -45,6 +45,9 @@ jobs:
           cmake -S . -B build/portmaster \
             -DBT3D_PLATFORM_PORTMASTER=ON \
             -DBT3D_FETCH_RAYLIB=ON \
+            -DPLATFORM=SDL \
+            -DGRAPHICS=GRAPHICS_API_OPENGL_ES2 \
+            -DOPENGL_VERSION="ES 2.0" \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_C_STANDARD_LIBRARIES="-lm -lpthread -ldl"
 
@@ -60,8 +63,16 @@ jobs:
           echo "--- menciones a SDL en la config de raylib ---"
           grep -n -i "sdl" build/portmaster/_deps/raylib-src/CMakeOptions.txt \
             build/portmaster/_deps/raylib-src/cmake/LibraryConfigurations.cmake || true
+          echo "--- definiciones GRAPHICS_API_* de raylib ---"
+          grep -o "GRAPHICS_API_[A-Z_0-9]*" "$FLAGS" | sort -u || true
+          echo "--- menciones a GRAPHICS / OPENGL en la config de raylib ---"
+          grep -n -E "GRAPHICS|OPENGL_VERSION" build/portmaster/_deps/raylib-src/CMakeOptions.txt \
+            build/portmaster/_deps/raylib-src/cmake/LibraryConfigurations.cmake | head -40 || true
           if ! grep -q "PLATFORM_DESKTOP_SDL" "$FLAGS"; then
             echo "ERROR: raylib NO se configuro con el backend SDL"; exit 1
+          fi
+          if ! grep -q "GRAPHICS_API_OPENGL_ES2" "$FLAGS"; then
+            echo "ERROR: raylib NO se configuro con OpenGL ES 2"; exit 1
           fi
 
       - name: Compilar
